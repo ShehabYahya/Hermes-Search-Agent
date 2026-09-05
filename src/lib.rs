@@ -1,8 +1,15 @@
 pub mod config;
+pub mod doctor;
 pub mod error;
+pub mod fsutil;
 pub mod hermes;
+pub mod install;
+pub mod paths;
+pub mod process;
 pub mod prompts;
 pub mod research;
 pub mod server;
+pub mod status;
 pub mod tools;
 pub mod tools_mcp;
+pub mod update;

@@ -1,9 +1,17 @@
 use std::sync::Arc;
 
-use anyhow::{Context, bail};
+use anyhow::Context;
 use clap::{Parser, Subcommand};
 use hermes_search_agent::{
-    config::Settings, hermes::HermesClient, research::ResearchRunner, server,
+    config::Settings,
+    doctor,
+    hermes::HermesClient,
+    install::{self, InstallOptions},
+    paths::{AppPaths, DEFAULT_DSH_PROFILE},
+    research::ResearchRunner,
+    server,
+    status,
+    update,
 };
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -16,10 +24,24 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Provision Hermes, the dedicated research profile, systemd services, and DSH MCP integration.
+    Install {
+        #[arg(long)] dry_run: bool,
+        #[arg(long)] non_interactive: bool,
+        #[arg(long, default_value = DEFAULT_DSH_PROFILE)] dsh_profile: String,
+    },
     /// Run the Streamable HTTP MCP server.
     Serve,
-    /// Verify the configured Hermes API exposes the run capabilities required by the bridge.
-    Doctor,
+    /// Show installed component and service state without changing anything.
+    Status,
+    /// Verify the complete installation. By default includes a real light research query.
+    Doctor { #[arg(long)] quick: bool },
+    /// Reconcile the managed Hermes profile, services, and DSH patch with the install manifest.
+    Repair { #[arg(long)] non_interactive: bool },
+    /// Update from the latest GitHub release and repair the installation.
+    Update { #[arg(long)] check: bool },
+    /// Remove DSH integration and services. --purge also deletes owned profile/config/state.
+    Uninstall { #[arg(long)] purge: bool },
 }
 
 #[tokio::main]
@@ -33,30 +55,24 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     let cli = Cli::parse();
-    let settings = Settings::from_env().context("failed to load configuration")?;
-    let hermes = HermesClient::new(&settings.hermes_url, &settings.hermes_api_key);
-
     match cli.command {
+        Command::Install { dry_run, non_interactive, dsh_profile } => {
+            install::install(InstallOptions { dry_run, non_interactive, dsh_profile }).await?;
+        }
         Command::Serve => {
-            hermes
-                .require_research_capabilities()
-                .await
-                .context("Hermes API is not compatible with the research bridge")?;
+            let paths = AppPaths::discover().context("failed to resolve application paths")?;
+            let settings = Settings::load(&paths).context("failed to load configuration")?;
+            let hermes = HermesClient::new(&settings.hermes_url, &settings.hermes_api_key);
+            // Deliberately do not capability-probe here: the MCP service stays online while
+            // Hermes restarts. Calls surface a temporary Hermes error and recover naturally.
             let runner = Arc::new(ResearchRunner::new(hermes, &settings));
             server::serve(&settings, runner).await?;
         }
-        Command::Doctor => {
-            let caps = hermes.capabilities().await?;
-            println!("Hermes URL: {}", settings.hermes_url);
-            println!("run_submission: {}", caps.run_submission);
-            println!("run_events_sse: {}", caps.run_events_sse);
-            println!("run_stop: {}", caps.run_stop);
-            if !(caps.run_submission && caps.run_events_sse && caps.run_stop) {
-                bail!("Hermes is missing one or more required research-run capabilities");
-            }
-            println!("Hermes research API contract: OK");
-        }
+        Command::Status => status::run()?,
+        Command::Doctor { quick } => doctor::run(quick).await?,
+        Command::Repair { non_interactive } => install::repair(non_interactive).await?,
+        Command::Update { check } => update::run(check).await?,
+        Command::Uninstall { purge } => install::uninstall(purge)?,
     }
-
     Ok(())
 }

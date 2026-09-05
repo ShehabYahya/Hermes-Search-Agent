@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use axum::Router;
+use axum::{Router, routing::get};
 use rmcp::transport::streamable_http_server::{
     StreamableHttpServerConfig, StreamableHttpService, session::local::LocalSessionManager,
 };
@@ -18,7 +18,9 @@ pub async fn serve(settings: &Settings, runner: Arc<ResearchRunner>) -> Result<(
         StreamableHttpServerConfig::default().with_cancellation_token(cancellation.child_token()),
     );
 
-    let router = Router::new().nest_service("/mcp", service);
+    let router = Router::new()
+        .route("/healthz", get(|| async { "ok" }))
+        .nest_service("/mcp", service);
     let listener = tokio::net::TcpListener::bind(settings.bind).await?;
     tracing::info!(bind = %settings.bind, endpoint = "/mcp", "MCP server listening");
 

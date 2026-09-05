@@ -23,6 +23,16 @@ pub enum SearchError {
     #[error("research timed out after {seconds}s")]
     Timeout { seconds: u64 },
 
+    #[error("command failed: {program} (exit {code:?})\n{stderr}")]
+    Command {
+        program: String,
+        code: Option<i32>,
+        stderr: String,
+    },
+
+    #[error("installation error: {0}")]
+    Install(String),
+
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
 }

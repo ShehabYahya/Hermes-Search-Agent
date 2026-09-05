@@ -1,0 +1,28 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  linux-x86_64:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.88.0
+      - name: Build
+        run: cargo build --release --locked
+      - name: Stage binary and checksum
+        run: |
+          cp target/release/hermes-search-agent hermes-search-agent-linux-x86_64
+          sha256sum hermes-search-agent-linux-x86_64 > hermes-search-agent-linux-x86_64.sha256
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            hermes-search-agent-linux-x86_64
+            hermes-search-agent-linux-x86_64.sha256
