@@ -12,6 +12,7 @@ use crate::{
 
 pub const TESTED_HERMES_REF: &str = "v2026.8.31";
 pub const TESTED_HERMES_VERSION: &str = "0.21.0";
+pub const TESTED_HERMES_COMMIT: &str = "29112bef099274229cadff79cdff7bf7b99c4b77";
 const INSTALLER_URL: &str = "https://raw.githubusercontent.com/NousResearch/hermes-agent/v2026.8.31/scripts/install.sh";
 
 pub async fn ensure_hermes(paths: &AppPaths) -> Result<(PathBuf, bool), SearchError> {
@@ -25,7 +26,16 @@ pub async fn ensure_hermes(paths: &AppPaths) -> Result<(PathBuf, bool), SearchEr
     atomic_write(&installer, &bytes, Some(0o700))?;
     set_mode(&installer, 0o700)?;
     let bash = resolve_command("bash", paths).ok_or_else(|| SearchError::Install("bash disappeared during install".into()))?;
-    run_inherit(&bash, [installer.as_os_str(), "--skip-setup".as_ref(), "--non-interactive".as_ref(), "--branch".as_ref(), TESTED_HERMES_REF.as_ref()])?;
+    let args = vec![
+        installer.to_string_lossy().to_string(),
+        "--skip-setup".into(),
+        "--non-interactive".into(),
+        "--branch".into(),
+        "main".into(),
+        "--commit".into(),
+        TESTED_HERMES_COMMIT.into(),
+    ];
+    run_inherit(&bash, args)?;
     let hermes = resolve_command("hermes", paths).ok_or_else(|| SearchError::Install("Hermes installer completed but the hermes command was not found".into()))?;
     Ok((hermes, true))
 }
@@ -71,6 +81,9 @@ pub fn ensure_profile(
         eprintln!("Hermes research profile needs a model/provider. Opening the Hermes setup wizard now.");
         run_inherit(hermes, ["-p", &profile, "setup"])?;
         configure_profile(paths, &profile, secret)?;
+        if !profile_has_model(&profile_dir.join("config.yaml"))? {
+            return Err(SearchError::Install(format!("Hermes setup completed but profile {profile} still has no configured model")));
+        }
     }
 
     run_checked(hermes, ["-p", &profile, "gateway", "install", "--force", "--start-now", "--start-on-login"])?;
@@ -114,10 +127,14 @@ fn configure_profile(paths: &AppPaths, profile: &str, secret: &str) -> Result<()
     web.insert(Value::String("search_backend".into()), Value::String("ddgs".into()));
     web.insert(Value::String("extract_backend".into()), Value::String("firecrawl".into()));
 
-    let gateway = mapping_entry(map, "gateway");
+    let mut gateway = Mapping::new();
     gateway.insert(Value::String("multiplex_profiles".into()), Value::Bool(false));
+    map.insert(Value::String("gateway".into()), Value::Mapping(gateway));
 
-    let platforms = mapping_entry(map, "platforms");
+    // Rebuild the platform map rather than editing a cloned one. This prevents a
+    // messaging adapter from the user's default profile from being carried into
+    // the dedicated research gateway.
+    let mut platforms = Mapping::new();
     for name in [
         "telegram", "discord", "whatsapp", "whatsapp_cloud", "slack", "signal", "mattermost", "matrix",
         "homeassistant", "email", "sms", "dingtalk", "webhook", "msgraph_webhook", "feishu", "wecom",
@@ -130,6 +147,7 @@ fn configure_profile(paths: &AppPaths, profile: &str, secret: &str) -> Result<()
     let mut api = Mapping::new();
     api.insert(Value::String("enabled".into()), Value::Bool(true));
     platforms.insert(Value::String("api_server".into()), Value::Mapping(api));
+    map.insert(Value::String("platforms".into()), Value::Mapping(platforms));
 
     let raw = serde_yaml::to_string(&root).map_err(|e| SearchError::Install(format!("cannot serialize Hermes profile config: {e}")))?;
     atomic_write(&config_path, raw.as_bytes(), Some(0o600))?;
