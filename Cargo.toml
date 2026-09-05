@@ -1,0 +1,26 @@
+[package]
+name = "hermes-search-agent"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "MIT"
+publish = false
+
+[dependencies]
+anyhow = "1"
+axum = { version = "0.8", default-features = false, features = ["http1", "tokio"] }
+clap = { version = "4.5", features = ["derive"] }
+rmcp = { version = "3.2", features = ["server", "transport-streamable-http-server"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "rustls"] }
+schemars = "1.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "time", "net"] }
+tokio-util = "0.7"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+uuid = { version = "1", features = ["v4"] }
+
+[dev-dependencies]
+pretty_assertions = "1"
