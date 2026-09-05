@@ -4,6 +4,20 @@ use serde::{Deserialize, Serialize};
 
 use crate::{error::SearchError, fsutil::{atomic_write, now_unix}, paths::AppPaths};
 
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct NativeWebManifest {
+    /// True once the installer has explicitly resolved the user's native-web choices.
+    pub choice_recorded: bool,
+    /// Preset copied to create the HSA-managed variant.
+    pub source_preset_id: Option<String>,
+    /// HSA-owned user preset currently selected for new DSH sessions.
+    pub managed_preset_id: Option<String>,
+    /// DSH settings value that existed before HSA started managing the preset choice.
+    /// None means the `agent-presets.default` setting was absent.
+    pub original_settings_default: Option<String>,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct InstallManifest {
     pub install_id: String,
@@ -17,6 +31,8 @@ pub struct InstallManifest {
     pub dsh_backup: Option<PathBuf>,
     pub profile_owned: bool,
     pub installed_hermes: bool,
+    #[serde(default)]
+    pub native_web: NativeWebManifest,
     pub installed_at: u64,
     pub updated_at: u64,
 }
@@ -36,6 +52,7 @@ impl InstallManifest {
             dsh_backup: None,
             profile_owned: false,
             installed_hermes: false,
+            native_web: NativeWebManifest::default(),
             installed_at: now,
             updated_at: now,
         }

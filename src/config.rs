@@ -39,6 +39,16 @@ pub struct TimeoutConfig {
 pub struct DshConfig {
     pub profile: String,
     pub server_name: String,
+    pub native_web: DshNativeWebConfig,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct DshNativeWebConfig {
+    /// Whether DSH's native web_search remains available.
+    pub search: bool,
+    /// Whether DSH's native web_fetch remains available.
+    pub fetch: bool,
 }
 
 impl Default for FileConfig {
@@ -49,7 +59,12 @@ impl Default for FileConfig {
 impl Default for McpConfig { fn default() -> Self { Self { bind: "127.0.0.1:8932".into() } } }
 impl Default for HermesConfig { fn default() -> Self { Self { profile: DEFAULT_HERMES_PROFILE.into(), url: "http://127.0.0.1:8643".into() } } }
 impl Default for TimeoutConfig { fn default() -> Self { Self { light: 30, medium: 120, deep: 360 } } }
-impl Default for DshConfig { fn default() -> Self { Self { profile: DEFAULT_DSH_PROFILE.into(), server_name: "hermes_search".into() } } }
+impl Default for DshNativeWebConfig { fn default() -> Self { Self { search: true, fetch: true } } }
+impl Default for DshConfig {
+    fn default() -> Self {
+        Self { profile: DEFAULT_DSH_PROFILE.into(), server_name: "hermes_search".into(), native_web: DshNativeWebConfig::default() }
+    }
+}
 
 impl FileConfig {
     pub fn load(paths: &AppPaths) -> Result<Self, SearchError> {
@@ -74,6 +89,8 @@ pub struct Settings {
     pub hermes_profile: String,
     pub dsh_profile: String,
     pub server_name: String,
+    pub dsh_native_web_search: bool,
+    pub dsh_native_web_fetch: bool,
     pub light_timeout: Duration,
     pub medium_timeout: Duration,
     pub deep_timeout: Duration,
@@ -98,6 +115,8 @@ impl Settings {
             hermes_profile: file.hermes.profile,
             dsh_profile: file.dsh.profile,
             server_name: file.dsh.server_name,
+            dsh_native_web_search: file.dsh.native_web.search,
+            dsh_native_web_fetch: file.dsh.native_web.fetch,
             light_timeout: Duration::from_secs(timeout_env("HERMES_SEARCH_LIGHT_TIMEOUT_SECS", file.timeouts.light)?),
             medium_timeout: Duration::from_secs(timeout_env("HERMES_SEARCH_MEDIUM_TIMEOUT_SECS", file.timeouts.medium)?),
             deep_timeout: Duration::from_secs(timeout_env("HERMES_SEARCH_DEEP_TIMEOUT_SECS", file.timeouts.deep)?),
@@ -123,4 +142,16 @@ pub fn read_env_value(path: &std::path::Path, key: &str) -> Result<Option<String
         let (name, value) = line.split_once('=')?;
         (name.trim() == key).then(|| value.trim().trim_matches('"').to_string())
     }).next())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn native_web_defaults_preserve_dsh_tools() {
+        let cfg = DshNativeWebConfig::default();
+        assert!(cfg.search);
+        assert!(cfg.fetch);
+    }
 }

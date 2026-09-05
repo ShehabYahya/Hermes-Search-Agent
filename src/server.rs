@@ -10,7 +10,7 @@ use crate::{config::Settings, error::SearchError, research::ResearchRunner, tool
 
 pub async fn serve(settings: &Settings, runner: Arc<ResearchRunner>) -> Result<(), SearchError> {
     let cancellation = CancellationToken::new();
-    let handler = SearchMcp::new(runner);
+    let handler = SearchMcp::new(runner, settings.dsh_native_web_search, settings.dsh_native_web_fetch);
 
     let service = StreamableHttpService::new(
         move || Ok(handler.clone()),

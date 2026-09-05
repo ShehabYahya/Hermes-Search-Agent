@@ -29,6 +29,18 @@ enum Command {
         #[arg(long)] dry_run: bool,
         #[arg(long)] non_interactive: bool,
         #[arg(long, default_value = DEFAULT_DSH_PROFILE)] dsh_profile: String,
+        /// Disable DSH's native web_search without prompting.
+        #[arg(long, conflicts_with = "keep_dsh_web_search")]
+        disable_dsh_web_search: bool,
+        /// Keep DSH's native web_search without prompting.
+        #[arg(long, conflicts_with = "disable_dsh_web_search")]
+        keep_dsh_web_search: bool,
+        /// Disable DSH's native web_fetch without prompting.
+        #[arg(long, conflicts_with = "keep_dsh_web_fetch")]
+        disable_dsh_web_fetch: bool,
+        /// Keep DSH's native web_fetch without prompting.
+        #[arg(long, conflicts_with = "disable_dsh_web_fetch")]
+        keep_dsh_web_fetch: bool,
     },
     /// Run the Streamable HTTP MCP server.
     Serve,
@@ -36,7 +48,7 @@ enum Command {
     Status,
     /// Verify the complete installation. By default includes a real light research query.
     Doctor { #[arg(long)] quick: bool },
-    /// Reconcile the managed Hermes profile, services, and DSH patch with the install manifest.
+    /// Reconcile the managed Hermes profile, services, DSH patch, and native-web policy with the install manifest.
     Repair { #[arg(long)] non_interactive: bool },
     /// Update from the latest GitHub release and repair the installation.
     Update { #[arg(long)] check: bool },
@@ -56,8 +68,18 @@ async fn main() -> anyhow::Result<()> {
 
     let cli = Cli::parse();
     match cli.command {
-        Command::Install { dry_run, non_interactive, dsh_profile } => {
-            install::install(InstallOptions { dry_run, non_interactive, dsh_profile }).await?;
+        Command::Install {
+            dry_run,
+            non_interactive,
+            dsh_profile,
+            disable_dsh_web_search,
+            keep_dsh_web_search,
+            disable_dsh_web_fetch,
+            keep_dsh_web_fetch,
+        } => {
+            let dsh_web_search = if disable_dsh_web_search { Some(false) } else if keep_dsh_web_search { Some(true) } else { None };
+            let dsh_web_fetch = if disable_dsh_web_fetch { Some(false) } else if keep_dsh_web_fetch { Some(true) } else { None };
+            install::install(InstallOptions { dry_run, non_interactive, dsh_profile, dsh_web_search, dsh_web_fetch }).await?;
         }
         Command::Serve => {
             let paths = AppPaths::discover().context("failed to resolve application paths")?;

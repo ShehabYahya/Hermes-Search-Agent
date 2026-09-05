@@ -17,14 +17,18 @@ use crate::{
 pub struct SearchMcp {
     runner: Arc<ResearchRunner>,
     tool_router: ToolRouter<SearchMcp>,
+    native_web_search: bool,
+    native_web_fetch: bool,
 }
 
 #[tool_router]
 impl SearchMcp {
-    pub fn new(runner: Arc<ResearchRunner>) -> Self {
+    pub fn new(runner: Arc<ResearchRunner>, native_web_search: bool, native_web_fetch: bool) -> Self {
         Self {
             runner,
             tool_router: Self::tool_router(),
+            native_web_search,
+            native_web_fetch,
         }
     }
 
@@ -37,7 +41,7 @@ impl SearchMcp {
         Ok(text_result(report))
     }
 
-    #[tool(description = "Investigate an objective across multiple sources and return a concise evidence-backed synthesis. Use for ordinary comparisons, current technical state, several related questions, or tasks where a simple lookup is not sufficient. State the objective and mandatory coverage; the research agent owns decomposition, query generation, source selection, gap checking, and stopping.")]
+    #[tool(description = "Investigate an objective across multiple sources and return a concise evidence-backed synthesis. This is the default research tool when a simple factual lookup is insufficient: use it for ordinary comparisons, current technical state, several related questions, or documentation plus empirical evidence. Prefer it over deep_research unless conflicting evidence, competing hypotheses, root-cause analysis, hidden subquestions, or a consequential decision genuinely require deeper investigation. The research agent owns decomposition, query generation, source selection, gap checking, and stopping.")]
     async fn medium_research(
         &self,
         Parameters(args): Parameters<MediumResearchArgs>,
@@ -46,7 +50,7 @@ impl SearchMcp {
         Ok(text_result(report))
     }
 
-    #[tool(description = "Perform a rigorous high-depth investigation for ambiguous, consequential, or technically difficult problems. Use when evidence may conflict, multiple hypotheses or causal explanations must be tested, hidden subquestions may need discovery, root-cause analysis is required, or an important decision depends on the result. Provide explicit scope and deliverable; hypotheses are optional leads, never assumptions.")]
+    #[tool(description = "Perform a rigorous high-depth investigation for ambiguous, consequential, or technically difficult problems. Use only when evidence may conflict, multiple hypotheses or causal explanations must be tested, hidden subquestions may need discovery, root-cause analysis is required, or an important decision depends on the result. Do not use deep_research merely because a topic is technical or because more detail would be useful. Provide explicit scope and deliverable; hypotheses are optional leads, never assumptions.")]
     async fn deep_research(
         &self,
         Parameters(args): Parameters<DeepResearchArgs>,
@@ -59,12 +63,18 @@ impl SearchMcp {
 #[tool_handler]
 impl ServerHandler for SearchMcp {
     fn get_info(&self) -> ServerInfo {
+        let mut instructions = "Three specialist research tools are available. Prefer the lowest sufficient research level: light_search for narrow factual resolution, medium_research as the default for normal multi-source synthesis, and deep_research only for rigorous evidence-driven investigation involving conflict, hypotheses, root cause, hidden subquestions, or consequential decisions. Give research briefs, not hand-written search queries.".to_string();
+        if !self.native_web_search {
+            instructions.push_str(" Native DSH web_search is disabled; use these Hermes tools for web discovery and research.");
+        }
+        if !self.native_web_fetch {
+            instructions.push_str(" Native DSH web_fetch is disabled.");
+        } else if !self.native_web_search {
+            instructions.push_str(" Native web_fetch remains available for retrieving a known URL directly.");
+        }
         ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(Implementation::from_build_env())
-            .with_instructions(
-                "Three specialist research tools are available: light_search for narrow factual resolution, medium_research for normal multi-source synthesis, and deep_research for rigorous evidence-driven investigation. Give research briefs, not hand-written search queries."
-                    .to_string(),
-            )
+            .with_instructions(instructions)
     }
 }
 

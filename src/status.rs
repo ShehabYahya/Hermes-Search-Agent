@@ -15,6 +15,13 @@ pub fn run() -> Result<(), SearchError> {
     println!("Hermes gateway: {}", active(systemd::is_active(&paths, &format!("hermes-gateway-{}.service", config.hermes.profile))));
     println!("DSH profile: {}", config.dsh.profile);
     println!("DSH integration: {}", mark(dsh::is_integrated(&paths, &config.dsh.profile)));
+    println!("DSH native web_search: {}", state(config.dsh.native_web.search));
+    println!("DSH native web_fetch: {}", state(config.dsh.native_web.fetch));
+    if let Some(manifest) = manifest.as_ref() {
+        if let Some(preset) = manifest.native_web.managed_preset_id.as_deref() {
+            println!("DSH managed preset: {preset}");
+        }
+    }
     if let Some(dsh_bin) = resolve_command("dsh", &paths) {
         if let Ok(out) = run_capture(&dsh_bin, ["--version"]) { println!("DSH version: {}", out.stdout); }
     }
@@ -26,3 +33,4 @@ pub fn run() -> Result<(), SearchError> {
 
 fn mark(ok: bool) -> &'static str { if ok { "OK" } else { "MISSING" } }
 fn active(ok: bool) -> &'static str { if ok { "running" } else { "stopped" } }
+fn state(ok: bool) -> &'static str { if ok { "enabled" } else { "disabled" } }

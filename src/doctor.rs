@@ -1,10 +1,10 @@
 use std::time::Duration;
 
 use crate::{
-    config::Settings,
+    config::{FileConfig, Settings},
     error::SearchError,
     hermes::HermesClient,
-    install::{dsh, manifest::InstallManifest, systemd},
+    install::{dsh, dsh_native_web, manifest::InstallManifest, systemd},
     paths::AppPaths,
     process::resolve_command,
     research::ResearchRunner,
@@ -14,6 +14,7 @@ use crate::{
 pub async fn run(quick: bool) -> Result<(), SearchError> {
     let paths = AppPaths::discover()?;
     let manifest = InstallManifest::load(&paths)?;
+    let file_config = FileConfig::load(&paths)?;
     let settings = Settings::load(&paths)?;
     let mut failed = false;
 
@@ -26,6 +27,17 @@ pub async fn run(quick: bool) -> Result<(), SearchError> {
     check("Hermes research profile", paths.hermes_profile_dir(&settings.hermes_profile).is_dir(), &mut failed);
     check("profile ownership marker", paths.hermes_profile_marker(&settings.hermes_profile).is_file(), &mut failed);
     check("DSH MCP patch", dsh::is_integrated(&paths, &settings.dsh_profile), &mut failed);
+
+    if let Some(manifest) = manifest.as_ref() {
+        match dsh_native_web::verify(&paths, &file_config.dsh.native_web, manifest) {
+            Ok(()) => println!(
+                "[ok] DSH native web policy (web_search={}, web_fetch={})",
+                state(file_config.dsh.native_web.search), state(file_config.dsh.native_web.fetch)
+            ),
+            Err(error) => { println!("[FAIL] DSH native web policy: {error}"); failed = true; }
+        }
+    }
+
     check("MCP systemd service", systemd::is_active(&paths, "hermes-search-agent.service"), &mut failed);
     check("Hermes gateway service", systemd::is_active(&paths, &format!("hermes-gateway-{}.service", settings.hermes_profile)), &mut failed);
 
@@ -90,3 +102,5 @@ async fn wait_for_mcp_health(settings: &Settings) -> Result<(), SearchError> {
 fn check(label: &str, ok: bool, failed: &mut bool) {
     if ok { println!("[ok] {label}"); } else { println!("[FAIL] {label}"); *failed = true; }
 }
+
+fn state(enabled: bool) -> &'static str { if enabled { "enabled" } else { "disabled" } }

@@ -77,6 +77,18 @@ impl AppPaths {
     pub fn dsh_patch_file(&self, profile: &str) -> PathBuf {
         self.dsh_profile_dir(profile).join("cordis.patch.yml")
     }
+
+    pub fn dsh_settings_file(&self) -> PathBuf {
+        self.dsh_home.join("settings.yaml")
+    }
+
+    pub fn dsh_user_presets_dir(&self) -> PathBuf {
+        self.dsh_home.join(".agent-presets")
+    }
+
+    pub fn dsh_user_preset_dir(&self, preset: &str) -> PathBuf {
+        self.dsh_user_presets_dir().join(preset)
+    }
 }
 
 fn env_path(name: &str, home: &Path, default: PathBuf) -> PathBuf {

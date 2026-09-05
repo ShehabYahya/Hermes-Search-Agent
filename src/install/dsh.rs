@@ -1,4 +1,4 @@
-use std::{fs, path::{Path, PathBuf}};
+use std::{fs, path::Path};
 
 use serde_yaml::Value;
 
@@ -7,7 +7,7 @@ use crate::{
     fsutil::{atomic_write, backup_file},
     install::manifest::InstallManifest,
     paths::AppPaths,
-    process::{run_capture, run_checked},
+    process::run_capture,
 };
 
 const BEGIN: &str = "# BEGIN hermes-search-agent managed MCP";
