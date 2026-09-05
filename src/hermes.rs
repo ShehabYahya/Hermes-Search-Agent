@@ -233,9 +233,11 @@ fn parse_terminal_event(body: &str) -> Result<CompletedRun, SearchError> {
 
 fn extract_final_text(payload: &Value) -> Option<String> {
     for key in ["content", "final_response", "output"] {
-        if let Some(text) = value_as_text(payload.get(key)?) {
-            if !text.trim().is_empty() {
-                return Some(text);
+        if let Some(value) = payload.get(key) {
+            if let Some(text) = value_as_text(value) {
+                if !text.trim().is_empty() {
+                    return Some(text);
+                }
             }
         }
     }
@@ -282,6 +284,13 @@ mod tests {
     fn parses_completed_sse() {
         let body = "event: tool.started\ndata: {\"tool\":\"web_search\"}\n\n\
                     event: run.completed\ndata: {\"event\":\"run.completed\",\"content\":\"answer\"}\n\n";
+        let completed = parse_terminal_event(body).expect("completed run");
+        assert_eq!(completed.content, "answer");
+    }
+
+    #[test]
+    fn parses_final_response_fallback() {
+        let body = "event: run.completed\ndata: {\"event\":\"run.completed\",\"final_response\":\"answer\"}\n\n";
         let completed = parse_terminal_event(body).expect("completed run");
         assert_eq!(completed.content, "answer");
     }
