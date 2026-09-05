@@ -47,18 +47,25 @@ impl ResearchRunner {
     }
 
     pub async fn light_search(&self, args: LightSearchArgs) -> Result<String, SearchError> {
-        self.execute(ResearchMode::Light, prompts::build_light(&args)?).await
+        self.execute(ResearchMode::Light, prompts::build_light(&args)?)
+            .await
     }
 
     pub async fn medium_research(&self, args: MediumResearchArgs) -> Result<String, SearchError> {
-        self.execute(ResearchMode::Medium, prompts::build_medium(&args)?).await
+        self.execute(ResearchMode::Medium, prompts::build_medium(&args)?)
+            .await
     }
 
     pub async fn deep_research(&self, args: DeepResearchArgs) -> Result<String, SearchError> {
-        self.execute(ResearchMode::Deep, prompts::build_deep(&args)?).await
+        self.execute(ResearchMode::Deep, prompts::build_deep(&args)?)
+            .await
     }
 
-    async fn execute(&self, mode: ResearchMode, prompt: PromptBundle) -> Result<String, SearchError> {
+    async fn execute(
+        &self,
+        mode: ResearchMode,
+        prompt: PromptBundle,
+    ) -> Result<String, SearchError> {
         let request_id = Uuid::new_v4();
         let session_id = format!("dsh-research-{request_id}");
         let idempotency_key = request_id.to_string();
